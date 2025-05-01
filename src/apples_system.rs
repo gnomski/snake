@@ -1,13 +1,12 @@
-use crate::game::SnakeHead;
+use crate::snake::SnakeHead;
+use crate::snake::PendingTail;
+
 use bevy::prelude::*;
 use rand::Rng;
+use crate::constants::*;
 
 #[derive(Component)]
 pub struct Apple;
-
-const GRID_SIZE: f32 = 32.0;
-const GRID_WIDTH: i32 = 20; // поле будет от -10 до +10
-const GRID_HEIGHT: i32 = 15;
 
 pub fn spawn_apple(mut commands: Commands, asset_server: Res<AssetServer>) {
     spawn_apple_internal(&mut commands, &asset_server);
@@ -34,27 +33,23 @@ fn spawn_apple_internal(commands: &mut Commands, asset_server: &AssetServer) {
 
 pub fn check_apple_collision(
     mut commands: Commands,
+    mut pending_tail: ResMut<PendingTail>,
     mut apple_query: Query<(Entity, &Transform), With<Apple>>,
     head_query: Query<&Transform, With<SnakeHead>>,
     asset_server: Res<AssetServer>,
 ) {
-    let Ok(head_transform) = head_query.single() else {
-        return;
-    };
-
-    let mut apple_to_despawn: Option<Entity> = None;
+    let Ok(head_transform) = head_query.single() else { return };
 
     for (entity, transform) in &mut apple_query {
         if head_transform.translation.distance(transform.translation) < 16.0 {
-            apple_to_despawn = Some(entity);
+            commands.entity(entity).despawn();
+
+            pending_tail.0.push(head_transform.translation.truncate());
+
+            spawn_apple(commands, asset_server);
+
             break;
         }
     }
-
-    if let Some(entity) = apple_to_despawn {
-        commands.entity(entity).despawn();
-
-        // Теперь можно безопасно передавать команды дальше
-        spawn_apple(commands, asset_server);
-    }
 }
+
